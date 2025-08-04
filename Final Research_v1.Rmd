@@ -1,0 +1,105 @@
+---
+title: "Final Research Project"
+output: html_notebook
+---
+
+
+```{r, message=FALSE}
+library(readr)
+library(dplyr)
+library(lubridate)
+```
+
+EDA Code Notebook Datasets:
+```{r load, echo=FALSE, message=FALSE, warning=FALSE}
+# Load IMF commodity price data
+Commodity <- read.csv("https://raw.githubusercontent.com/datasets/commodity-prices/refs/heads/main/data/commodity-prices.csv")
+
+# Load U.S. Producer Price Index (PPI) data from FRED
+PPI <- read.csv("https://raw.githubusercontent.com/kimcardinale/qtm302w-eda-project/d7ba7b915d24af7180918f55ce5ebb5961929ec7/PPIACO.csv")
+
+cat("The raw commodity price and PPI datasets have been successfully loaded.\nReady for data cleaning and merging in the next step.\n")
+```
+
+```{r clean-commodities, echo=FALSE, message=FALSE, warning=FALSE}
+# Convert Date column to proper format and extract Year-Month string
+Commodity <-Commodity %>%
+  mutate(Date = ymd(Date))
+
+# Filter only energy-related commodities to date range
+energy_data <- Commodity %>%
+  filter(Date >= ymd("1992-01-01") & Date <= ymd("2016-06-30")) %>%
+  select(Date, `Crude.Oil.petroleum`, `Fuel.Energy.Index`, Coal)
+
+# Rename columns
+colnames(energy_data) <- c("Date", "CrudeOil", "NaturalGas", "Coal")
+
+# Preview data
+head(energy_data)
+```
+
+```{r clean-ppi, echo=FALSE, message=FALSE, warning=FALSE}
+# Clean and filter PPI data to match commodity date range
+PPI <- PPI %>%
+  
+# Rename the column and convert to Date format
+  rename(Date = observation_date) %>%    
+  mutate(Date = ymd(Date)) %>%  
+  filter(Date >= ymd("1992-01-01") & Date <= ymd("2016-06-30"))
+
+# Merge datasets by date
+merged_data <- inner_join(energy_data, PPI, by = "Date")%>%
+  rename(PPI = PPIACO)
+
+# Preview merged data
+head(merged_data)
+```
+
+
+
+
+
+Final Research Project Datasets:
+```{r}
+CPI_index_raw <- read_csv("CPI data_index.csv", show_col_types = FALSE)
+
+CPI_ppa_raw <- read_csv("CPI data_percent per annum.csv", show_col_types = FALSE)
+
+head(CPI_index_raw)
+head(CPI_ppa_raw)
+```
+
+```{r}
+# Clean and transform the datasets
+CPI_index_cleaned <- CPI_index_raw %>%
+  select(Date = TIME_PERIOD, Index = OBS_VALUE) %>%   # Rename columns for clarity
+  mutate(Date = paste0(Date, "-01"),                  # Add day to date string
+         Date = ymd(Date)) %>%                        # Convert to Date format
+  arrange(Date)
+
+CPI_ppa_cleaned <- CPI_ppa_raw %>%
+  select(Date = TIME_PERIOD, `Percent per annum` = OBS_VALUE) %>%   # Rename columns for clarity
+  mutate(Date = paste0(Date, "-01"),                                # Add day to date string
+         Date = ymd(Date)) %>%                                      # Convert to Date format
+  arrange(Date)
+
+# View the 2 cleaned datasets
+print(CPI_index_cleaned)
+print(CPI_ppa_cleaned)
+```
+
+
+
+```{r}
+# Merge CPI_index with CPI_ppa
+CPI_combined <- inner_join(CPI_index_cleaned, CPI_ppa_cleaned, by = "Date")
+
+# Merge that with merged energy + PPI data from EDA Code Notebook
+final_dataset <- inner_join(merged_data, CPI_combined, by = "Date")
+
+# Preview final combined dataset
+head(final_dataset)
+
+```
+
+
